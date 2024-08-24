@@ -17,9 +17,7 @@ public class EndpointAuthInfo {
         this.httpMethod = httpMethod;
         this.authExpression = authExpression;
     }
-
-    // Getters and other utility methods can be added as needed
-
+    
     public String getPath() {
         return path;
     }
