@@ -17,16 +17,7 @@ public class AuthorizationReportCli {
 
         try {
             //Create new reflection utils
-            ReflectionUtils reflectionUtils = new ReflectionUtils();
-
-            // Create and configure the authorization scanner
-            AuthorizationScanner scanner = new AuthorizationScanner(reflectionUtils);
-
-            // Create the report generator
-            ReportGenerator generator = new ReportGenerator(scanner);
-
-            // Generate the authorization report
-            AuthorizationReport report = generator.generateReport(options.getBasePackage());
+            AuthorizationReport report = getAuthorizationReport(options);
 
             // Print the report using the specified format and output option
             ReportPrinter.printReport(report, options.getOutputFormat(), options.getOutputFile(), options.isVerbose());
@@ -35,5 +26,19 @@ public class AuthorizationReportCli {
             System.err.println("Error generating or printing the report: " + e.getMessage());
             System.exit(1);
         }
+    }
+
+    private static AuthorizationReport getAuthorizationReport(CommandLineOptions options) {
+        ReflectionUtils reflectionUtils = new ReflectionUtils();
+
+        // Create and configure the authorization scanner
+        AuthorizationScanner scanner = new AuthorizationScanner(reflectionUtils);
+
+        // Create the report generator
+        ReportGenerator generator = new ReportGenerator(scanner);
+
+        // Generate the authorization report
+        AuthorizationReport report = generator.generateReport(options.getBasePackage());
+        return report;
     }
 }

@@ -15,6 +15,8 @@ public class EndpointAuthInfo {
      * @param path The URL path of the endpoint.
      * @param httpMethod The HTTP method (GET, POST, etc.) of the endpoint.
      * @param authExpression The authorization expression (from @PreAuthorize) for the endpoint.
+     * @param methodName The name of the method associated with the endpoint.
+     * @param className The name of the class containing the method.
      */
     public EndpointAuthInfo(String path, String httpMethod, String authExpression, String methodName, String className) {
         this.path = path;
