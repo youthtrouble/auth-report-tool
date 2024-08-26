@@ -1,3 +1,5 @@
+package io.authreporttool.core;
+
 import java.util.List;
 
 public class DifferentialReport {
@@ -7,10 +9,10 @@ public class DifferentialReport {
     private final List<EndpointDiff> changedEndpoints;
 
     /**
-     * Constructor to initialize the DifferentialReport.
-     * @param addedEndpoints A list of EndpointDiff objects representing added endpoints.
-     * @param removedEndpoints A list of EndpointDiff objects representing removed endpoints.
-     * @param changedEndpoints A list of EndpointDiff objects representing changed endpoints.
+     * Constructor to initialize the io.authreporttool.core.DifferentialReport.
+     * @param addedEndpoints A list of io.authreporttool.core.EndpointDiff objects representing added endpoints.
+     * @param removedEndpoints A list of io.authreporttool.core.EndpointDiff objects representing removed endpoints.
+     * @param changedEndpoints A list of io.authreporttool.core.EndpointDiff objects representing changed endpoints.
      */
     public DifferentialReport(List<EndpointDiff> addedEndpoints, List<EndpointDiff> removedEndpoints, List<EndpointDiff> changedEndpoints) {
         this.addedEndpoints = addedEndpoints;

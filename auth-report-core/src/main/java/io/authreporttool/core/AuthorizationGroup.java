@@ -1,7 +1,9 @@
+package io.authreporttool.core;
+
 import java.util.List;
 
 /**
- * The AuthorizationGroup class represents a group of endpoints that share the same authorization expression.
+ * The io.authreporttool.core.AuthorizationGroup class represents a group of endpoints that share the same authorization expression.
  * It provides a way to organize and manage the authorization information for a set of related endpoints.
  */
 public class AuthorizationGroup {
@@ -12,14 +14,14 @@ public class AuthorizationGroup {
     private final String authExpression;
 
     /**
-     * The list of EndpointAuthInfo objects that belong to this authorization group.
+     * The list of io.authreporttool.core.EndpointAuthInfo objects that belong to this authorization group.
      */
     private final List<EndpointAuthInfo> endpoints;
 
     /**
-     * Constructor to initialize the AuthorizationGroup.
+     * Constructor to initialize the io.authreporttool.core.AuthorizationGroup.
      * @param authExpression The authorization expression (e.g., "ROLE_ADMIN").
-     * @param endpoints A list of EndpointAuthInfo objects that share the same authorization expression.
+     * @param endpoints A list of io.authreporttool.core.EndpointAuthInfo objects that share the same authorization expression.
      */
     public AuthorizationGroup(String authExpression, List<EndpointAuthInfo> endpoints) {
         this.authExpression = authExpression;
@@ -36,7 +38,7 @@ public class AuthorizationGroup {
 
     /**
      * Getter method to retrieve the list of endpoints in this authorization group.
-     * @return The list of EndpointAuthInfo objects that belong to this group.
+     * @return The list of io.authreporttool.core.EndpointAuthInfo objects that belong to this group.
      */
     public List<EndpointAuthInfo> getEndpoints() {
         return endpoints;

@@ -1,3 +1,5 @@
+package io.authreporttool.core;
+
 import org.springframework.http.HttpMethod;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -8,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The AuthorizationScanner class is responsible for scanning a specified package
+ * The io.authreporttool.core.AuthorizationScanner class is responsible for scanning a specified package
  * for REST controllers and extracting authentication and authorization details
  * for each endpoint.
  */
@@ -18,7 +20,7 @@ public class AuthorizationScanner {
     private final ReflectionUtils reflectionUtils;
 
     /**
-     * Constructor to initialize the AuthorizationScanner with a ReflectionUtils instance.
+     * Constructor to initialize the io.authreporttool.core.AuthorizationScanner with a io.authreporttool.core.ReflectionUtils instance.
      * @param reflectionUtils Utility class used for reflection-based operations.
      */
     public AuthorizationScanner(ReflectionUtils reflectionUtils) {
@@ -29,13 +31,13 @@ public class AuthorizationScanner {
      * Scans the specified base package for REST controllers and extracts
      * authentication and authorization details for each endpoint.
      * @param basePackage The base package to scan for controllers.
-     * @return A list of EndpointAuthInfo containing authentication details for each endpoint.
+     * @return A list of io.authreporttool.core.EndpointAuthInfo containing authentication details for each endpoint.
      */
     public List<EndpointAuthInfo> scanApi(String basePackage) {
         // List to hold the authentication information for all endpoints
         List<EndpointAuthInfo> authInfoList = new ArrayList<>();
 
-        // Use ReflectionUtils to find all classes annotated with @RestController in the specified package
+        // Use io.authreporttool.core.ReflectionUtils to find all classes annotated with @RestController in the specified package
         Set<Class<?>> controllers = reflectionUtils.findAnnotatedClasses(basePackage, RestController.class);
 
         // Iterate through each controller class
@@ -52,7 +54,7 @@ public class AuthorizationScanner {
      * Scans the specified controller class for methods and extracts
      * authentication and authorization details for each method (endpoint).
      * @param controller The controller class to scan.
-     * @return A list of EndpointAuthInfo containing authentication details for each method.
+     * @return A list of io.authreporttool.core.EndpointAuthInfo containing authentication details for each method.
      */
     private List<EndpointAuthInfo> scanController(Class<?> controller) {
         // List to hold the authentication information for each method in the controller
@@ -78,7 +80,7 @@ public class AuthorizationScanner {
     /**
      * Extracts authentication and authorization details from a given method.
      * @param method The method to extract authentication details from.
-     * @return An EndpointAuthInfo object containing the authentication details, or null if not applicable.
+     * @return An io.authreporttool.core.EndpointAuthInfo object containing the authentication details, or null if not applicable.
      */
     private EndpointAuthInfo extractAuthInfo(Method method) {
         // Check if the method has a @RequestMapping annotation (or its derived annotations)
@@ -95,9 +97,13 @@ public class AuthorizationScanner {
             String httpMethod = determineHttpMethod(method);
             // Determine the authorization expression from the @PreAuthorize annotation (if present)
             String authExpression = (preAuthorize != null) ? preAuthorize.value() : "None";
+            // Get the method name and class name for reference
+            String methodName = method.getName();
+            // Get the class name for reference
+            String className = method.getDeclaringClass().getName();
 
-            // Return the collected information as an EndpointAuthInfo object
-            return new EndpointAuthInfo(path, httpMethod, authExpression);
+            // Return the collected information as an io.authreporttool.core.EndpointAuthInfo object
+            return new EndpointAuthInfo(path, httpMethod, authExpression, methodName, className);
         }
 
         // If the method is not mapped to a URL path, return null

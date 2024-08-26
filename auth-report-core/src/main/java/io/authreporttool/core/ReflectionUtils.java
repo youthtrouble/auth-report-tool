@@ -1,3 +1,5 @@
+package io.authreporttool.core;
+
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 import org.reflections.util.ClasspathHelper;

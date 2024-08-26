@@ -1,3 +1,5 @@
+package io.authreporttool.core;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,18 +9,18 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * The ReportGenerator class is responsible for generating reports based on the authorization
- * information collected by the AuthorizationScanner. It can also generate differential reports
+ * The io.authreporttool.core.ReportGenerator class is responsible for generating reports based on the authorization
+ * information collected by the io.authreporttool.core.AuthorizationScanner. It can also generate differential reports
  * that compare two authorization reports to identify changes.
  */
 public class ReportGenerator {
 
-    // Instance of AuthorizationScanner used to scan for endpoint authorization information
+    // Instance of io.authreporttool.core.AuthorizationScanner used to scan for endpoint authorization information
     private final AuthorizationScanner scanner;
 
     /**
-     * Constructor to initialize the ReportGenerator with an AuthorizationScanner instance.
-     * @param scanner The AuthorizationScanner used to scan for endpoint authorization information.
+     * Constructor to initialize the io.authreporttool.core.ReportGenerator with an io.authreporttool.core.AuthorizationScanner instance.
+     * @param scanner The io.authreporttool.core.AuthorizationScanner used to scan for endpoint authorization information.
      */
     public ReportGenerator(AuthorizationScanner scanner) {
         this.scanner = scanner;
@@ -27,7 +29,7 @@ public class ReportGenerator {
     /**
      * Generates an authorization report by scanning the specified base package.
      * @param basePackage The base package to scan for endpoint authorization information.
-     * @return An AuthorizationReport containing the scanned endpoint authorization information.
+     * @return An io.authreporttool.core.AuthorizationReport containing the scanned endpoint authorization information.
      */
     public AuthorizationReport generateReport(String basePackage) {
         // Scan the base package for endpoint authorization information
@@ -37,23 +39,23 @@ public class ReportGenerator {
     }
 
     /**
-     * Processes a list of EndpointAuthInfo objects into an AuthorizationReport.
+     * Processes a list of io.authreporttool.core.EndpointAuthInfo objects into an io.authreporttool.core.AuthorizationReport.
      * Groups endpoints by their authorization expressions and creates authorization groups.
      * @param authInfoList The list of endpoint authorization information.
-     * @return An AuthorizationReport containing the grouped authorization information.
+     * @return An io.authreporttool.core.AuthorizationReport containing the grouped authorization information.
      */
     private AuthorizationReport processAuthInfo(List<EndpointAuthInfo> authInfoList) {
         // Group the endpoints by their authorization expressions (e.g., "ROLE_ADMIN", "ROLE_USER")
         Map<String, List<EndpointAuthInfo>> groupedByAuth = authInfoList.stream()
                 .collect(Collectors.groupingBy(EndpointAuthInfo::getAuthExpression));
 
-        // Create a list of AuthorizationGroup objects based on the grouped information
+        // Create a list of io.authreporttool.core.AuthorizationGroup objects based on the grouped information
         List<AuthorizationGroup> groups = new ArrayList<>();
         for (Map.Entry<String, List<EndpointAuthInfo>> entry : groupedByAuth.entrySet()) {
             groups.add(new AuthorizationGroup(entry.getKey(), entry.getValue()));
         }
 
-        // Return a new AuthorizationReport containing the groups and the current timestamp
+        // Return a new io.authreporttool.core.AuthorizationReport containing the groups and the current timestamp
         return new AuthorizationReport(groups, LocalDateTime.now());
     }
 
@@ -62,7 +64,7 @@ public class ReportGenerator {
      * Identifies endpoints that were added, removed, or changed between the two reports.
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
-     * @return A DifferentialReport containing the differences between the two reports.
+     * @return A io.authreporttool.core.DifferentialReport containing the differences between the two reports.
      */
     public DifferentialReport generateDifferentialReport(AuthorizationReport oldReport, AuthorizationReport newReport) {
         // Find endpoints that were added in the new report
@@ -72,7 +74,7 @@ public class ReportGenerator {
         // Find endpoints that were changed between the two reports
         List<EndpointDiff> changedEndpoints = findChangedEndpoints(oldReport, newReport);
 
-        // Return a new DifferentialReport containing the added, removed, and changed endpoints
+        // Return a new io.authreporttool.core.DifferentialReport containing the added, removed, and changed endpoints
         return new DifferentialReport(addedEndpoints, removedEndpoints, changedEndpoints);
     }
 
@@ -80,7 +82,7 @@ public class ReportGenerator {
      * Finds the endpoints that were added in the new report compared to the old report.
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
-     * @return A list of EndpointDiff objects representing the added endpoints.
+     * @return A list of io.authreporttool.core.EndpointDiff objects representing the added endpoints.
      */
     private List<EndpointDiff> findAddedEndpoints(AuthorizationReport oldReport, AuthorizationReport newReport) {
         // Create a map of endpoints in the old report for efficient lookup
@@ -100,7 +102,7 @@ public class ReportGenerator {
      * Finds the endpoints that were removed in the new report compared to the old report.
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
-     * @return A list of EndpointDiff objects representing the removed endpoints.
+     * @return A list of io.authreporttool.core.EndpointDiff objects representing the removed endpoints.
      */
     private List<EndpointDiff> findRemovedEndpoints(AuthorizationReport oldReport, AuthorizationReport newReport) {
         // Create a map of endpoints in the new report for efficient lookup
@@ -120,7 +122,7 @@ public class ReportGenerator {
      * Finds the endpoints that were changed between the old report and the new report.
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
-     * @return A list of EndpointDiff objects representing the changed endpoints.
+     * @return A list of io.authreporttool.core.EndpointDiff objects representing the changed endpoints.
      */
     private List<EndpointDiff> findChangedEndpoints(AuthorizationReport oldReport, AuthorizationReport newReport) {
         // Create a map of endpoints in the old report for efficient lookup

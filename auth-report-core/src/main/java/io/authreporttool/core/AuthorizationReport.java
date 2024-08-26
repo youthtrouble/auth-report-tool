@@ -1,15 +1,17 @@
+package io.authreporttool.core;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * The AuthorizationReport class represents a structured report of the authorization information
- * collected by the AuthorizationScanner. It provides a hierarchical view of the authorization
+ * The io.authreporttool.core.AuthorizationReport class represents a structured report of the authorization information
+ * collected by the io.authreporttool.core.AuthorizationScanner. It provides a hierarchical view of the authorization
  * requirements for the scanned API endpoints.
  */
 public class AuthorizationReport {
 
     /**
-     * A list of AuthorizationGroup objects, where each group represents a set of endpoints
+     * A list of io.authreporttool.core.AuthorizationGroup objects, where each group represents a set of endpoints
      * that share the same authorization expression (e.g., "ROLE_ADMIN", "ROLE_USER").
      */
     private final List<AuthorizationGroup> groups;
@@ -20,8 +22,8 @@ public class AuthorizationReport {
     private final LocalDateTime generatedAt;
 
     /**
-     * Constructor to initialize the AuthorizationReport.
-     * @param groups A list of AuthorizationGroup objects representing the grouped authorization information.
+     * Constructor to initialize the io.authreporttool.core.AuthorizationReport.
+     * @param groups A list of io.authreporttool.core.AuthorizationGroup objects representing the grouped authorization information.
      * @param generatedAt The timestamp when the report was generated.
      */
     public AuthorizationReport(List<AuthorizationGroup> groups, LocalDateTime generatedAt) {
@@ -30,8 +32,8 @@ public class AuthorizationReport {
     }
 
     /**
-     * Getter method to retrieve the list of AuthorizationGroup objects in the report.
-     * @return The list of AuthorizationGroup objects.
+     * Getter method to retrieve the list of io.authreporttool.core.AuthorizationGroup objects in the report.
+     * @return The list of io.authreporttool.core.AuthorizationGroup objects.
      */
     public List<AuthorizationGroup> getGroupedEndpoints() {
         return groups;

@@ -1,3 +1,5 @@
+package io.authreporttool.core;
+
 public class EndpointDiff {
     private final EndpointAuthInfo newEndpoint;
     private final EndpointAuthInfo oldEndpoint;
