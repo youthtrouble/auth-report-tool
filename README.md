@@ -16,11 +16,11 @@
 10. [Contributing](#contributing)
 11. [License](#license)
 
-## Introduction
+### Introduction
 
 The Authorization Report Tool is a utility designed to analyze Spring Boot applications and generate comprehensive reports on the authorization and authentication mechanisms in place. It scans your codebase to identify endpoints, their associated HTTP methods, and the security constraints applied to them, including role-based access control and API key authentication.
 
-## Features
+### Features
 
 - Scans Spring Boot applications for REST endpoints
 - Identifies HTTP methods for each endpoint
@@ -30,15 +30,15 @@ The Authorization Report Tool is a utility designed to analyze Spring Boot appli
 - Command-line interface for easy integration into CI/CD pipelines
 - Can be used as a library in other Java applications
 
-## Requirements
+### Requirements
 
 - Java 11 or higher
 - Spring Boot 2.x or 3.x
 - Maven or Gradle (for building and running)
 
-## Installation
+### Installation
 
-### Using as a standalone tool
+#### Using as a standalone tool
 
 1. Clone the repository:
     
@@ -53,9 +53,9 @@ mvn clean package
 ```
 3. The compiled JAR will be in the `target` directory.
 
-### Adding as a dependency in your project
+#### Adding as a dependency in your project
 
-#### Maven
+##### Maven
 
 Add the following to your `pom.xml`:
 
