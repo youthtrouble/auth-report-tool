@@ -9,6 +9,8 @@ public class EndpointAuthInfo {
     private final String authExpression;
     private final String methodName;
     private final String className;
+    private boolean apiKeyRequired;
+    private String apiKeyHeaderName;
 
     /**
      * Constructor to initialize the io.authreporttool.core.EndpointAuthInfo object.
@@ -24,6 +26,8 @@ public class EndpointAuthInfo {
         this.authExpression = authExpression;
         this.methodName = methodName;
         this.className = className;
+        this.apiKeyRequired = false;
+        this.apiKeyHeaderName = null;
     }
 
     public String getPath() {
@@ -38,6 +42,22 @@ public class EndpointAuthInfo {
         return authExpression;
     }
 
+    public boolean isApiKeyRequired() {
+        return apiKeyRequired;
+    }
+
+    public String getApiKeyHeaderName() {
+        return apiKeyHeaderName;
+    }
+
+    public void setApiKeyRequired(boolean apiKeyRequired) {
+        this.apiKeyRequired = apiKeyRequired;
+    }
+
+    public void setApiKeyHeaderName(String apiKeyHeaderName) {
+        this.apiKeyHeaderName = apiKeyHeaderName;
+    }
+
     @Override
     public String toString() {
         return "EndpointAuthInfo{" +
@@ -46,6 +66,8 @@ public class EndpointAuthInfo {
                 ", authExpression='" + authExpression + '\'' +
                 ", methodName='" + methodName + '\'' +
                 ", className='" + className + '\'' +
+                ", apiKeyRequired=" + apiKeyRequired +
+                ", apiKeyHeaderName='" + apiKeyHeaderName + '\'' +
                 '}';
     }
 
@@ -58,13 +80,15 @@ public class EndpointAuthInfo {
                 Objects.equals(httpMethod, that.httpMethod) &&
                 Objects.equals(authExpression, that.authExpression) &&
                 Objects.equals(methodName, that.methodName) &&
-                Objects.equals(className, that.className);
+                Objects.equals(className, that.className) &&
+                Objects.equals(apiKeyRequired, that.apiKeyRequired) &&
+                Objects.equals(apiKeyHeaderName, that.apiKeyHeaderName);
     }
 
 
     @Override
     public int hashCode() {
-        return Objects.hash(path, httpMethod, authExpression);
+        return Objects.hash(path, httpMethod, authExpression, methodName, className, apiKeyRequired, apiKeyHeaderName);
     }
 
     public String getMethodName() {
@@ -75,5 +99,4 @@ public class EndpointAuthInfo {
         return className;
     }
 
-    //From the EndpointAuthInfo class, the methods getMethodName and getClassName are not accounted for in the class and in the core scanning implementation. Can you fix this. Dig into your memory to find the other classes.
-}
+    }
