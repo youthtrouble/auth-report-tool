@@ -1,0 +1,8 @@
+io/authreporttool/core/ReflectionUtils.class
+io/authreporttool/core/EndpointAuthInfo.class
+io/authreporttool/core/EndpointDiff.class
+io/authreporttool/core/AuthorizationReport.class
+io/authreporttool/core/DifferentialReport.class
+io/authreporttool/core/AuthorizationScanner.class
+io/authreporttool/core/ReportGenerator.class
+io/authreporttool/core/AuthorizationGroup.class
