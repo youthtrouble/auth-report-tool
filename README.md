@@ -68,8 +68,10 @@ Add the following to your `pom.xml`:
 ```
 
 #### Gradle
-Add the following to your build.gradle:
-groovyCopyimplementation 'io.authreporttool:auth-report-tool:1.0.0'
+Add the following to your ```build.gradle```:
+```groovy
+implementation 'io.authreporttool:auth-report-tool:1.0.0'
+```
 
 ### Usage
 #### Command Line Interface
