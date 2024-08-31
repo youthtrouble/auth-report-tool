@@ -1,5 +1,8 @@
 package io.authreporttool.core;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +21,8 @@ public class ReportGenerator {
     // Instance of io.authreporttool.core.AuthorizationScanner used to scan for endpoint authorization information
     private final AuthorizationScanner scanner;
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthorizationScanner.class);
+
     /**
      * Constructor to initialize the io.authreporttool.core.ReportGenerator with an io.authreporttool.core.AuthorizationScanner instance.
      * @param scanner The io.authreporttool.core.AuthorizationScanner used to scan for endpoint authorization information.
@@ -35,6 +40,9 @@ public class ReportGenerator {
         // Scan the base package for endpoint authorization information
         List<EndpointAuthInfo> authInfoList = scanner.scanApi(basePackage);
         // Process the collected information into an authorization report
+
+        logger.info("Generating authorization report for package: " + basePackage);
+
         return processAuthInfo(authInfoList);
     }
 

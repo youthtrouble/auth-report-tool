@@ -13,7 +13,6 @@
         <module>auth-report-core</module>
         <module>auth-report-cli</module>
         <module>auth-report-spring</module>
-        <!--        <module>auth-report-spring</module>-->
     </modules>
 
     <properties>
@@ -55,6 +54,11 @@
                 <artifactId>junit-jupiter</artifactId>
                 <version>${junit.version}</version>
                 <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>jakarta.servlet</groupId>
+                <artifactId>jakarta.servlet-api</artifactId>
+                <version>6.0.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

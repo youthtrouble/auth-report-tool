@@ -49,7 +49,10 @@ public class AuthorizationScanner {
         try {
             // Scan for REST controllers
             Set<Class<?>> controllers = reflectionUtils.findAnnotatedClasses(basePackage, RestController.class);
+
+            logger.info("scanned controllers: " + controllers.size());
             for (Class<?> controller : controllers) {
+                logger.info("Scanning controller: " + controller.getName());
                 authInfoList.addAll(scanController(controller));
             }
 
@@ -77,6 +80,7 @@ public class AuthorizationScanner {
 
         for (Method method : controller.getDeclaredMethods()) {
             try {
+                logger.info("Scanning method: " + method.getName());
                 EndpointAuthInfo authInfo = extractAuthInfo(method, controllerPath);
                 if (authInfo != null) {
                     authInfoList.add(authInfo);
