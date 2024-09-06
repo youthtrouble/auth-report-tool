@@ -4,6 +4,7 @@ import io.authreporttool.core.AuthorizationReport;
 import io.authreporttool.core.AuthorizationScanner;
 import io.authreporttool.core.ReflectionUtils;
 import io.authreporttool.core.ReportGenerator;
+import io.authreporttool.core.SecurityConfigAnalyzer;
 
 import java.io.IOException;
 
@@ -16,11 +17,11 @@ public class AuthorizationReportCli {
         CommandLineOptions options = new CommandLineOptions(args);
 
         try {
-            //Create new reflection utils
             AuthorizationReport report = getAuthorizationReport(options);
+            String reportString = generateReportString(report, options);
 
             // Print the report using the specified format and output option
-            ReportPrinter.printReport(report, options.getOutputFormat(), options.getOutputFile(), options.isVerbose());
+            ReportPrinter.printReport(reportString, options.getOutputFormat(), options.getOutputFile());
 
         } catch (IOException e) {
             System.err.println("Error generating or printing the report: " + e.getMessage());
@@ -30,15 +31,20 @@ public class AuthorizationReportCli {
 
     private static AuthorizationReport getAuthorizationReport(CommandLineOptions options) {
         ReflectionUtils reflectionUtils = new ReflectionUtils();
+        SecurityConfigAnalyzer securityConfigAnalyzer = new SecurityConfigAnalyzer();
 
         // Create and configure the authorization scanner
-        AuthorizationScanner scanner = new AuthorizationScanner(reflectionUtils);
+        AuthorizationScanner scanner = new AuthorizationScanner(reflectionUtils, securityConfigAnalyzer);
 
         // Create the report generator
         ReportGenerator generator = new ReportGenerator(scanner);
 
         // Generate the authorization report
-        AuthorizationReport report = generator.generateReport(options.getBasePackage());
-        return report;
+        return generator.generateReport(options.getBasePackage());
+    }
+
+    private static String generateReportString(AuthorizationReport report, CommandLineOptions options) {
+        ReportGenerator generator = new ReportGenerator(null); // We don't need scanner here
+        return generator.generateDetailedReportString(report);
     }
 }

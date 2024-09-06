@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.authreporttool.core.AuthorizationGroup;
 import io.authreporttool.core.AuthorizationReport;
-import io.authreporttool.core.EndpointAuthInfo;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -20,19 +19,18 @@ public class ReportPrinter {
     /**
      * Prints the report in the specified format to the given output (console or file).
      *
-     * @param report The io.authreporttool.core.AuthorizationReport to print.
+     * @param reportString The string representation of the AuthorizationReport to print.
      * @param format The output format ("text" or "json").
      * @param outputFile The file to write the report to (null for console output).
-     * @param verbose Whether to include verbose output.
      * @throws IOException If there's an error writing to the output file.
      */
-    public static void printReport(AuthorizationReport report, String format, String outputFile, boolean verbose) throws IOException {
+    public static void printReport(String reportString, String format, String outputFile) throws IOException {
         PrintWriter writer = outputFile != null ? new PrintWriter(new FileWriter(outputFile)) : new PrintWriter(System.out);
 
         if ("json".equalsIgnoreCase(format)) {
-            printJsonReport(report, writer, verbose);
+            printJsonReport(reportString, writer);
         } else {
-            printTextReport(report, writer, verbose);
+            printTextReport(reportString, writer);
         }
 
         writer.flush();
@@ -44,43 +42,46 @@ public class ReportPrinter {
 
     /**
      * Prints the report in text format.
+     *
+     * @param reportString The string representation of the report.
+     * @param writer The PrintWriter to write the report to.
      */
-    private static void printTextReport(AuthorizationReport report, PrintWriter writer, boolean verbose) {
-        writer.println("Authorization Report");
-        writer.println("Generated at: " + report.getGeneratedAt());
-        writer.println("Total endpoints: " + report.getTotalEndpoints());
-        writer.println("Unique auth expressions: " + report.getUniqueAuthExpressions());
-        writer.println();
-
-        for (AuthorizationGroup group : report.getGroupedEndpoints()) {
-            writer.println("Auth Expression: " + group.getAuthExpression());
-            for (EndpointAuthInfo endpoint : group.getEndpoints()) {
-                writer.println("  " + endpoint.getHttpMethod() + " " + endpoint.getPath());
-                if (verbose) {
-                    writer.println("    Class: " + endpoint.getClassName());
-                    writer.println("    Method: " + endpoint.getMethodName());
-                }
-            }
-            writer.println();
-        }
+    private static void printTextReport(String reportString, PrintWriter writer) {
+        writer.println(reportString);
     }
 
     /**
      * Prints the report in JSON format.
+     *
+     * @param reportString The string representation of the report.
+     * @param writer The PrintWriter to write the report to.
+     * @throws IOException If there's an error during JSON conversion.
      */
-    private static void printJsonReport(AuthorizationReport report, PrintWriter writer, boolean verbose) throws IOException {
+    private static void printJsonReport(String reportString, PrintWriter writer) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
 
-        if (verbose) {
-            mapper.writeValue(writer, report);
-        } else {
-            // Create a simplified version of the report for non-verbose output
-            SimplifiedReport simplifiedReport = new SimplifiedReport(report);
-            mapper.writeValue(writer, simplifiedReport);
-        }
+        // Convert the report string to a JSON object
+        Object jsonReport = convertReportToJson(reportString);
+
+        // Write the JSON object to the writer
+        mapper.writeValue(writer, jsonReport);
     }
 
+    /**
+     * Converts the string report to a JSON-compatible object structure.
+     *
+     * @param reportString The string representation of the report.
+     * @return An object structure that can be serialized to JSON.
+     */
+    private static Object convertReportToJson(String reportString) {
+        // This is a placeholder implementation. You'll need to parse the reportString
+        // and create a proper object structure that represents the report in a JSON-friendly format.
+        // For now, we'll just create a simple object with the raw string.
+        return new Object() {
+            public final String report = reportString;
+        };
+    }
     /**
      * A simplified version of the report for non-verbose JSON output.
      */

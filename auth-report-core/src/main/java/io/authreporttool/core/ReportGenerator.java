@@ -4,67 +4,81 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * The io.authreporttool.core.ReportGenerator class is responsible for generating reports based on the authorization
- * information collected by the io.authreporttool.core.AuthorizationScanner. It can also generate differential reports
- * that compare two authorization reports to identify changes.
+ * The ReportGenerator class is responsible for generating comprehensive reports based on the authorization
+ * information collected by the AuthorizationScanner. It can generate both standard and differential reports,
+ * including detailed security configuration information for each endpoint.
  */
 public class ReportGenerator {
 
-    // Instance of io.authreporttool.core.AuthorizationScanner used to scan for endpoint authorization information
+    private static final Logger logger = LoggerFactory.getLogger(ReportGenerator.class);
     private final AuthorizationScanner scanner;
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthorizationScanner.class);
-
     /**
-     * Constructor to initialize the io.authreporttool.core.ReportGenerator with an io.authreporttool.core.AuthorizationScanner instance.
-     * @param scanner The io.authreporttool.core.AuthorizationScanner used to scan for endpoint authorization information.
+     * Constructor to initialize the ReportGenerator with an AuthorizationScanner instance.
+     * @param scanner The AuthorizationScanner used to scan for endpoint authorization information.
      */
     public ReportGenerator(AuthorizationScanner scanner) {
         this.scanner = scanner;
     }
 
     /**
-     * Generates an authorization report by scanning the specified base package.
+     * Generates a comprehensive authorization report by scanning the specified base package.
      * @param basePackage The base package to scan for endpoint authorization information.
-     * @return An io.authreporttool.core.AuthorizationReport containing the scanned endpoint authorization information.
+     * @return An AuthorizationReport containing detailed endpoint authorization information.
      */
     public AuthorizationReport generateReport(String basePackage) {
-        // Scan the base package for endpoint authorization information
-        List<EndpointAuthInfo> authInfoList = scanner.scanApi(basePackage);
-        // Process the collected information into an authorization report
-
         logger.info("Generating authorization report for package: " + basePackage);
-
+        List<EndpointAuthInfo> authInfoList = scanner.scanApi(basePackage);
         return processAuthInfo(authInfoList);
     }
 
     /**
-     * Processes a list of io.authreporttool.core.EndpointAuthInfo objects into an io.authreporttool.core.AuthorizationReport.
+     * Processes a list of EndpointAuthInfo objects into an AuthorizationReport.
      * Groups endpoints by their authorization expressions and creates authorization groups.
      * @param authInfoList The list of endpoint authorization information.
-     * @return An io.authreporttool.core.AuthorizationReport containing the grouped authorization information.
+     * @return An AuthorizationReport containing the grouped authorization information.
      */
     private AuthorizationReport processAuthInfo(List<EndpointAuthInfo> authInfoList) {
-        // Group the endpoints by their authorization expressions (e.g., "ROLE_ADMIN", "ROLE_USER")
         Map<String, List<EndpointAuthInfo>> groupedByAuth = authInfoList.stream()
                 .collect(Collectors.groupingBy(EndpointAuthInfo::getAuthExpression));
 
-        // Create a list of io.authreporttool.core.AuthorizationGroup objects based on the grouped information
         List<AuthorizationGroup> groups = new ArrayList<>();
         for (Map.Entry<String, List<EndpointAuthInfo>> entry : groupedByAuth.entrySet()) {
             groups.add(new AuthorizationGroup(entry.getKey(), entry.getValue()));
         }
 
-        // Return a new io.authreporttool.core.AuthorizationReport containing the groups and the current timestamp
         return new AuthorizationReport(groups, LocalDateTime.now());
+    }
+
+    /**
+     * Generates a detailed string representation of the authorization report.
+     * @param report The AuthorizationReport to convert to a string.
+     * @return A string representation of the authorization report.
+     */
+    public String generateDetailedReportString(AuthorizationReport report) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Authorization Report\n");
+        sb.append("Generated at: ").append(report.getGeneratedAt()).append("\n");
+        sb.append("Total endpoints: ").append(report.getTotalEndpoints()).append("\n\n");
+
+        for (AuthorizationGroup group : report.getGroupedEndpoints()) {
+            sb.append("Auth Expression: ").append(group.getAuthExpression()).append("\n");
+            for (EndpointAuthInfo info : group.getEndpoints()) {
+                sb.append("  ").append(info.getHttpMethod()).append(" ").append(info.getPath()).append("\n");
+                sb.append("    API Key Required: ").append(info.isApiKeyRequired()).append("\n");
+                sb.append("    Basic Auth Required: ").append(info.isBasicAuthRequired()).append("\n");
+                sb.append("    Session Management: ").append(info.getSessionManagement()).append("\n");
+                sb.append("    Security Features: ").append(String.join(", ", info.getSecurityFeatures())).append("\n");
+            }
+            sb.append("\n");
+        }
+
+        return sb.toString();
     }
 
     /**
@@ -72,17 +86,13 @@ public class ReportGenerator {
      * Identifies endpoints that were added, removed, or changed between the two reports.
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
-     * @return A io.authreporttool.core.DifferentialReport containing the differences between the two reports.
+     * @return A DifferentialReport containing the differences between the two reports.
      */
     public DifferentialReport generateDifferentialReport(AuthorizationReport oldReport, AuthorizationReport newReport) {
-        // Find endpoints that were added in the new report
         List<EndpointDiff> addedEndpoints = findAddedEndpoints(oldReport, newReport);
-        // Find endpoints that were removed from the old report
         List<EndpointDiff> removedEndpoints = findRemovedEndpoints(oldReport, newReport);
-        // Find endpoints that were changed between the two reports
         List<EndpointDiff> changedEndpoints = findChangedEndpoints(oldReport, newReport);
 
-        // Return a new io.authreporttool.core.DifferentialReport containing the added, removed, and changed endpoints
         return new DifferentialReport(addedEndpoints, removedEndpoints, changedEndpoints);
     }
 
@@ -90,15 +100,11 @@ public class ReportGenerator {
      * Finds the endpoints that were added in the new report compared to the old report.
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
-     * @return A list of io.authreporttool.core.EndpointDiff objects representing the added endpoints.
+     * @return A list of EndpointDiff objects representing the added endpoints.
      */
     private List<EndpointDiff> findAddedEndpoints(AuthorizationReport oldReport, AuthorizationReport newReport) {
-        // Create a map of endpoints in the old report for efficient lookup
-        Map<String, EndpointAuthInfo> oldEndpointsMap = oldReport.getGroupedEndpoints().stream()
-                .flatMap(group -> group.getEndpoints().stream())
-                .collect(Collectors.toMap(EndpointAuthInfo::getPath, Function.identity()));
+        Map<String, EndpointAuthInfo> oldEndpointsMap = createEndpointMap(oldReport);
 
-        // Compare endpoints in the new report with the old report and find the added ones
         return newReport.getGroupedEndpoints().stream()
                 .flatMap(group -> group.getEndpoints().stream())
                 .filter(endpoint -> !oldEndpointsMap.containsKey(endpoint.getPath()))
@@ -110,15 +116,11 @@ public class ReportGenerator {
      * Finds the endpoints that were removed in the new report compared to the old report.
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
-     * @return A list of io.authreporttool.core.EndpointDiff objects representing the removed endpoints.
+     * @return A list of EndpointDiff objects representing the removed endpoints.
      */
     private List<EndpointDiff> findRemovedEndpoints(AuthorizationReport oldReport, AuthorizationReport newReport) {
-        // Create a map of endpoints in the new report for efficient lookup
-        Map<String, EndpointAuthInfo> newEndpointsMap = newReport.getGroupedEndpoints().stream()
-                .flatMap(group -> group.getEndpoints().stream())
-                .collect(Collectors.toMap(EndpointAuthInfo::getPath, Function.identity()));
+        Map<String, EndpointAuthInfo> newEndpointsMap = createEndpointMap(newReport);
 
-        // Compare endpoints in the old report with the new report and find the removed ones
         return oldReport.getGroupedEndpoints().stream()
                 .flatMap(group -> group.getEndpoints().stream())
                 .filter(endpoint -> !newEndpointsMap.containsKey(endpoint.getPath()))
@@ -130,27 +132,92 @@ public class ReportGenerator {
      * Finds the endpoints that were changed between the old report and the new report.
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
-     * @return A list of io.authreporttool.core.EndpointDiff objects representing the changed endpoints.
+     * @return A list of EndpointDiff objects representing the changed endpoints.
      */
     private List<EndpointDiff> findChangedEndpoints(AuthorizationReport oldReport, AuthorizationReport newReport) {
-        // Create a map of endpoints in the old report for efficient lookup
-        Map<String, EndpointAuthInfo> oldEndpointsMap = oldReport.getGroupedEndpoints().stream()
-                .flatMap(group -> group.getEndpoints().stream())
-                .collect(Collectors.toMap(EndpointAuthInfo::getPath, Function.identity()));
+        Map<String, EndpointAuthInfo> oldEndpointsMap = createEndpointMap(oldReport);
 
-        // Compare endpoints in the new report with the old report and find the changed ones
         return newReport.getGroupedEndpoints().stream()
                 .flatMap(group -> group.getEndpoints().stream())
                 .filter(endpoint -> oldEndpointsMap.containsKey(endpoint.getPath()))
                 .map(endpoint -> {
                     EndpointAuthInfo oldEndpoint = oldEndpointsMap.get(endpoint.getPath());
-                    if (!endpoint.getAuthExpression().equals(oldEndpoint.getAuthExpression()) ||
-                            !endpoint.getHttpMethod().equals(oldEndpoint.getHttpMethod())) {
+                    if (isEndpointChanged(endpoint, oldEndpoint)) {
                         return new EndpointDiff(endpoint, oldEndpoint);
                     }
                     return null;
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Creates a map of endpoints keyed by their paths for efficient lookup.
+     * @param report The authorization report to create the map from.
+     * @return A map of endpoint paths to EndpointAuthInfo objects.
+     */
+    private Map<String, EndpointAuthInfo> createEndpointMap(AuthorizationReport report) {
+        return report.getGroupedEndpoints().stream()
+                .flatMap(group -> group.getEndpoints().stream())
+                .collect(Collectors.toMap(EndpointAuthInfo::getPath, Function.identity()));
+    }
+
+    /**
+     * Determines if an endpoint has changed by comparing all relevant fields.
+     * @param newEndpoint The endpoint from the new report.
+     * @param oldEndpoint The endpoint from the old report.
+     * @return true if the endpoint has changed, false otherwise.
+     */
+    private boolean isEndpointChanged(EndpointAuthInfo newEndpoint, EndpointAuthInfo oldEndpoint) {
+        return !newEndpoint.getAuthExpression().equals(oldEndpoint.getAuthExpression()) ||
+                !newEndpoint.getHttpMethod().equals(oldEndpoint.getHttpMethod()) ||
+                newEndpoint.isApiKeyRequired() != oldEndpoint.isApiKeyRequired() ||
+                newEndpoint.isBasicAuthRequired() != oldEndpoint.isBasicAuthRequired() ||
+                newEndpoint.isCsrfEnabled() != oldEndpoint.isCsrfEnabled() ||
+                !newEndpoint.getSessionManagement().equals(oldEndpoint.getSessionManagement()) ||
+                !newEndpoint.getSecurityFeatures().equals(oldEndpoint.getSecurityFeatures());
+    }
+
+    /**
+     * Generates a detailed string representation of the differential report.
+     * @param report The DifferentialReport to convert to a string.
+     * @return A string representation of the differential report.
+     */
+    public String generateDetailedDiffReportString(DifferentialReport report) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Differential Authorization Report\n");
+        sb.append("Generated at: ").append(LocalDateTime.now()).append("\n\n");
+
+        sb.append("Added Endpoints:\n");
+        report.getAddedEndpoints().forEach(diff -> appendEndpointDiff(sb, diff.getNewEndpoint(), "Added"));
+
+        sb.append("Removed Endpoints:\n");
+        report.getRemovedEndpoints().forEach(diff -> appendEndpointDiff(sb, diff.getOldEndpoint(), "Removed"));
+
+        sb.append("Changed Endpoints:\n");
+        report.getChangedEndpoints().forEach(diff -> {
+            appendEndpointDiff(sb, diff.getNewEndpoint(), "Changed (New)");
+            appendEndpointDiff(sb, diff.getOldEndpoint(), "Changed (Old)");
+            sb.append("\n");
+        });
+
+        return sb.toString();
+    }
+
+    /**
+     * Appends the details of a single endpoint to the StringBuilder.
+     * @param sb The StringBuilder to append to.
+     * @param endpoint The EndpointAuthInfo to append.
+     * @param changeType The type of change (Added, Removed, or Changed).
+     */
+    private void appendEndpointDiff(StringBuilder sb, EndpointAuthInfo endpoint, String changeType) {
+        sb.append("  ").append(changeType).append(": ").append(endpoint.getHttpMethod()).append(" ").append(endpoint.getPath()).append("\n");
+        sb.append("    Auth Expression: ").append(endpoint.getAuthExpression()).append("\n");
+        sb.append("    API Key Required: ").append(endpoint.isApiKeyRequired()).append("\n");
+        sb.append("    Basic Auth Required: ").append(endpoint.isBasicAuthRequired()).append("\n");
+        sb.append("    CSRF Enabled: ").append(endpoint.isCsrfEnabled()).append("\n");
+        sb.append("    Session Management: ").append(endpoint.getSessionManagement()).append("\n");
+        sb.append("    Security Features: ").append(String.join(", ", endpoint.getSecurityFeatures())).append("\n");
+        sb.append("\n");
     }
 }

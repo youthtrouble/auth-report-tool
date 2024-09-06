@@ -1,16 +1,23 @@
 package io.authreporttool.core;
 
-import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.*;
 
 public class EndpointAuthInfo {
 
+    private static final Logger log = LoggerFactory.getLogger(EndpointAuthInfo.class);
     private final String path;
     private final String httpMethod;
     private final String authExpression;
     private final String methodName;
     private final String className;
     private boolean apiKeyRequired;
+    private boolean basicAuthRequired;
+    private List<String> roles;
     private String apiKeyHeaderName;
+    private Set<String> securityFeatures;
 
     /**
      * Constructor to initialize the io.authreporttool.core.EndpointAuthInfo object.
@@ -28,6 +35,7 @@ public class EndpointAuthInfo {
         this.className = className;
         this.apiKeyRequired = false;
         this.apiKeyHeaderName = null;
+        this.securityFeatures = new HashSet<>();
     }
 
     public String getPath() {
@@ -46,16 +54,48 @@ public class EndpointAuthInfo {
         return apiKeyRequired;
     }
 
-    public String getApiKeyHeaderName() {
-        return apiKeyHeaderName;
-    }
-
     public void setApiKeyRequired(boolean apiKeyRequired) {
         this.apiKeyRequired = apiKeyRequired;
     }
 
-    public void setApiKeyHeaderName(String apiKeyHeaderName) {
-        this.apiKeyHeaderName = apiKeyHeaderName;
+    public void setBasicAuthRequired(boolean basicAuthRequired) {
+        log.debug("Setting basic auth required: {}", basicAuthRequired);
+        this.basicAuthRequired = basicAuthRequired;
+    }
+
+    public void setSecurityFeatures(Set<String> securityFeatures) {
+        log.debug("Setting security features: {}", securityFeatures);
+        this.securityFeatures = securityFeatures;
+    }
+
+    public void addSecurityFeature(String feature) {
+        this.securityFeatures.add(feature);
+    }
+
+    public void setSessionManagement(String sessionManagement) {
+        log.debug("adding session management 🚨");
+        addSecurityFeature("Session Management: " + sessionManagement);
+
+        log.debug("Security features 🫠: {}", securityFeatures);
+    }
+
+    public Object isBasicAuthRequired() {
+        return basicAuthRequired;
+    }
+
+    public Object isCsrfEnabled() {
+        return securityFeatures.contains("CSRF Protection");
+    }
+
+    public Object getSessionManagement() {
+        return securityFeatures.stream()
+                .filter(f -> f.startsWith("Session Management"))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public Set<String> getSecurityFeatures() {
+        return securityFeatures;
     }
 
     @Override
@@ -67,7 +107,10 @@ public class EndpointAuthInfo {
                 ", methodName='" + methodName + '\'' +
                 ", className='" + className + '\'' +
                 ", apiKeyRequired=" + apiKeyRequired +
+                ", basicAuthRequired=" + basicAuthRequired +
+                ", roles=" + roles +
                 ", apiKeyHeaderName='" + apiKeyHeaderName + '\'' +
+                ", securityFeatures=" + securityFeatures +
                 '}';
     }
 
@@ -76,12 +119,12 @@ public class EndpointAuthInfo {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         EndpointAuthInfo that = (EndpointAuthInfo) o;
-        return Objects.equals(path, that.path) &&
-                Objects.equals(httpMethod, that.httpMethod) &&
-                Objects.equals(authExpression, that.authExpression) &&
-                Objects.equals(methodName, that.methodName) &&
-                Objects.equals(className, that.className) &&
-                Objects.equals(apiKeyRequired, that.apiKeyRequired) &&
+        return apiKeyRequired == that.apiKeyRequired &&
+                path.equals(that.path) &&
+                httpMethod.equals(that.httpMethod) &&
+                authExpression.equals(that.authExpression) &&
+                methodName.equals(that.methodName) &&
+                className.equals(that.className) &&
                 Objects.equals(apiKeyHeaderName, that.apiKeyHeaderName);
     }
 
@@ -91,12 +134,4 @@ public class EndpointAuthInfo {
         return Objects.hash(path, httpMethod, authExpression, methodName, className, apiKeyRequired, apiKeyHeaderName);
     }
 
-    public String getMethodName() {
-        return methodName;
-    }
-
-    public String getClassName() {
-        return className;
-    }
-
-    }
+}

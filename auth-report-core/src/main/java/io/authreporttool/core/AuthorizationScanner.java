@@ -2,16 +2,12 @@ package io.authreporttool.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
-import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,13 +24,15 @@ public class AuthorizationScanner {
 
     // Utility instance for performing reflection-based operations
     private final ReflectionUtils reflectionUtils;
+    private final SecurityConfigAnalyzer securityConfigAnalyzer;
 
     /**
      * Constructor to initialize the AuthorizationScanner with a ReflectionUtils instance.
      * @param reflectionUtils Utility class used for reflection-based operations.
      */
-    public AuthorizationScanner(ReflectionUtils reflectionUtils) {
+    public AuthorizationScanner(ReflectionUtils reflectionUtils, SecurityConfigAnalyzer securityConfigAnalyzer) {
         this.reflectionUtils = reflectionUtils;
+        this.securityConfigAnalyzer = securityConfigAnalyzer;
     }
 
     /**
@@ -59,6 +57,7 @@ public class AuthorizationScanner {
             // Scan for security configuration
             Set<Class<?>> securityConfigs = reflectionUtils.findClassesWithBeanMethods(basePackage, SecurityFilterChain.class);
             for (Class<?> config : securityConfigs) {
+                logger.info("Scanning security config(Bean methods): " + config.getName());
                 scanSecurityConfig(config, authInfoList);
             }
         } catch (Exception e) {
@@ -168,194 +167,24 @@ public class AuthorizationScanner {
      * @return The HTTP method as a string.
      */
     private String determineHttpMethod(Method method) {
-        if (method.isAnnotationPresent(GetMapping.class)) {
-            return HttpMethod.GET.name();
-        } else if (method.isAnnotationPresent(PostMapping.class)) {
-            return HttpMethod.POST.name();
-        } else if (method.isAnnotationPresent(PutMapping.class)) {
-            return HttpMethod.PUT.name();
-        } else if (method.isAnnotationPresent(DeleteMapping.class)) {
-            return HttpMethod.DELETE.name();
-        } else if (method.isAnnotationPresent(RequestMapping.class)) {
-            RequestMapping mapping = method.getAnnotation(RequestMapping.class);
-            return mapping.method().length > 0 ? mapping.method()[0].name() : HttpMethod.GET.name();
+        if (AnnotationUtils.findAnnotation(method, GetMapping.class) != null) return HttpMethod.GET.name();
+        if (AnnotationUtils.findAnnotation(method, PostMapping.class) != null) return HttpMethod.POST.name();
+        if (AnnotationUtils.findAnnotation(method, PutMapping.class) != null) return HttpMethod.PUT.name();
+        if (AnnotationUtils.findAnnotation(method, DeleteMapping.class) != null) return HttpMethod.DELETE.name();
+        RequestMapping requestMapping = AnnotationUtils.findAnnotation(method, RequestMapping.class);
+        if (requestMapping != null) {
+            return requestMapping.method().length > 0 ? requestMapping.method()[0].name() : HttpMethod.GET.name();
         }
-        return HttpMethod.GET.name(); // Default to GET if not specified
+        return HttpMethod.GET.name();
     }
 
-    /**
-     * Scans the security configuration class to identify custom filters and API key authentication.
-     * @param configClass The security configuration class to scan.
-     * @param authInfoList The list of EndpointAuthInfo to update with additional security information.
-     */
     private void scanSecurityConfig(Class<?> configClass, List<EndpointAuthInfo> authInfoList) {
-        try {
-            Object configInstance = configClass.getDeclaredConstructor().newInstance();
-
-            for (Method method : configClass.getDeclaredMethods()) {
-                if (SecurityFilterChain.class.isAssignableFrom(method.getReturnType())) {
-                    method.setAccessible(true);
-                    Object[] params = new Object[method.getParameterCount()];
-                    SecurityFilterChain filterChain = (SecurityFilterChain) method.invoke(configInstance, params);
-                    scanFilterChain(filterChain, authInfoList);
+        for (Method method : configClass.getDeclaredMethods()) {
+            if (SecurityFilterChain.class.isAssignableFrom(method.getReturnType())) {
+                for (EndpointAuthInfo authInfo : authInfoList) {
+                    logger.info("Analyzing SecurityFilterChain method(outward scanner): {}", method.getName());
+                    securityConfigAnalyzer.analyzeSecurityFilterChain(method, authInfo);
                 }
-            }
-        } catch (Exception e) {
-            logger.error("Error scanning security config: " + configClass.getName(), e);
-        }
-    }
-
-    /**
-     * Scans a SecurityFilterChain to identify custom filters that might implement API key authentication.
-     * @param filterChain The SecurityFilterChain to scan.
-     * @param authInfoList The list of EndpointAuthInfo to update with API key authentication information.
-     */
-    private void scanFilterChain(SecurityFilterChain filterChain, List<EndpointAuthInfo> authInfoList) {
-        try {
-            if (filterChain instanceof FilterChainProxy) {
-                FilterChainProxy filterChainProxy = (FilterChainProxy) filterChain;
-                List<SecurityFilterChain> chains = filterChainProxy.getFilterChains();
-
-                for (SecurityFilterChain chain : chains) {
-                    RequestMatcher matcher = getRequestMatcher(chain);
-                    List<OncePerRequestFilter> filters = getFilters(chain);
-
-                    for (OncePerRequestFilter filter : filters) {
-                        String apiKeyHeaderName = detectApiKeyHeader(filter);
-                        if (apiKeyHeaderName != null) {
-                            updateAuthInfoWithApiKey(authInfoList, matcher, apiKeyHeaderName);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Error scanning filter chain", e);
-        }
-    }
-
-    /**
-     * Attempts to get the RequestMatcher from a SecurityFilterChain using reflection.
-     * @param chain The SecurityFilterChain to examine.
-     * @return The RequestMatcher for the chain, or null if it can't be retrieved.
-     */
-    private RequestMatcher getRequestMatcher(SecurityFilterChain chain) {
-        try {
-            Field requestMatcherField = findField(chain.getClass(), "requestMatcher");
-            if (requestMatcherField != null) {
-                requestMatcherField.setAccessible(true);
-                return (RequestMatcher) requestMatcherField.get(chain);
-            }
-        } catch (Exception e) {
-            logger.warn("Unable to get RequestMatcher from chain: " + chain, e);
-        }
-        return null;
-    }
-
-    /**
-     * Attempts to get the list of filters from a SecurityFilterChain using reflection.
-     * @param chain The SecurityFilterChain to examine.
-     * @return A list of OncePerRequestFilter objects, or an empty list if they can't be retrieved.
-     */
-    private List<OncePerRequestFilter> getFilters(SecurityFilterChain chain) {
-        try {
-            Field filtersField = findField(chain.getClass(), "filters");
-            if (filtersField != null) {
-                filtersField.setAccessible(true);
-                List<?> filters = (List<?>) filtersField.get(chain);
-                List<OncePerRequestFilter> result = new ArrayList<>();
-                for (Object filter : filters) {
-                    if (filter instanceof OncePerRequestFilter) {
-                        result.add((OncePerRequestFilter) filter);
-                    }
-                }
-                return result;
-            }
-        } catch (Exception e) {
-            logger.warn("Unable to get filters from chain: " + chain, e);
-        }
-        return new ArrayList<>();
-    }
-
-    /**
-     * Finds a field in the class hierarchy of the given class.
-     * @param clazz The class to search.
-     * @param fieldName The name of the field to find.
-     * @return The Field object if found, null otherwise.
-     */
-    private Field findField(Class<?> clazz, String fieldName) {
-        Class<?> currentClass = clazz;
-        while (currentClass != null) {
-            try {
-                return currentClass.getDeclaredField(fieldName);
-            } catch (NoSuchFieldException e) {
-                currentClass = currentClass.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Checks if a filter is likely to be an API key authentication filter and extracts the header name.
-     * @param filter The filter to check.
-     * @return The API key header name if detected, null otherwise.
-     */
-    private String detectApiKeyHeader(OncePerRequestFilter filter) {
-        String filterName = filter.getClass().getSimpleName().toLowerCase();
-        if (filterName.contains("apikey") || filterName.contains("token") ||
-                filterName.contains("auth") || filterName.contains("key")) {
-
-            for (Field field : filter.getClass().getDeclaredFields()) {
-                field.setAccessible(true);
-                String fieldName = field.getName().toLowerCase();
-                if (fieldName.contains("header") || fieldName.contains("key") || fieldName.contains("token")) {
-                    try {
-                        Object value = field.get(filter);
-                        if (value instanceof String) {
-                            return (String) value;
-                        }
-                    } catch (IllegalAccessException e) {
-                        logger.warn("Unable to access field: " + field.getName(), e);
-                    }
-                }
-            }
-
-            return "X-API-Key"; // Default header name if not found
-        }
-        return null;
-    }
-
-    /**
-     * Updates EndpointAuthInfo objects that match the given RequestMatcher with API key information.
-     * @param authInfoList The list of EndpointAuthInfo objects to update.
-     * @param matcher The RequestMatcher to use for identifying which endpoints to update.
-     * @param apiKeyHeaderName The name of the API key header.
-     */
-    private void updateAuthInfoWithApiKey(List<EndpointAuthInfo> authInfoList, RequestMatcher matcher, String apiKeyHeaderName) {
-        if (matcher == null) {
-            return;
-        }
-
-        if (matcher instanceof AntPathRequestMatcher) {
-            AntPathRequestMatcher antMatcher = (AntPathRequestMatcher) matcher;
-            updateForAntMatcher(authInfoList, antMatcher, apiKeyHeaderName);
-        } else {
-            logger.warn("Unsupported RequestMatcher type: " + matcher.getClass().getName());
-        }
-    }
-
-    /**
-     * Updates EndpointAuthInfo objects that match the given AntPathRequestMatcher.
-     * @param authInfoList The list of EndpointAuthInfo objects to update.
-     * @param matcher The AntPathRequestMatcher to use for matching.
-     * @param apiKeyHeaderName The name of the API key header.
-     */
-    private void updateForAntMatcher(List<EndpointAuthInfo> authInfoList, AntPathRequestMatcher matcher, String apiKeyHeaderName) {
-        String pattern = matcher.getPattern();
-        for (EndpointAuthInfo info : authInfoList) {
-            if (info.getPath().startsWith(pattern) || pattern.equals("/**")) {
-                info.setApiKeyRequired(true);
-                info.setApiKeyHeaderName(apiKeyHeaderName);
-                logger.info("API Key required for endpoint: " + info.getPath() + ", Header: " + apiKeyHeaderName);
             }
         }
     }
