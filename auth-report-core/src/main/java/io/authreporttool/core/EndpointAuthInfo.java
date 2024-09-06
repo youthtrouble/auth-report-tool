@@ -38,6 +38,32 @@ public class EndpointAuthInfo {
         this.securityFeatures = new HashSet<>();
     }
 
+    public EndpointAuthInfo() {
+        this.path = null;
+        this.httpMethod = null;
+        this.authExpression = null;
+        this.methodName = null;
+        this.className = null;
+        this.apiKeyRequired = false;
+        this.apiKeyHeaderName = null;
+        this.securityFeatures = new HashSet<>();
+    }
+
+    /**
+     * Copy constructor to create a new io.authreporttool.core.EndpointAuthInfo object from an existing one.
+     * @param authInfo The existing io.authreporttool.core.EndpointAuthInfo object to copy.
+     */
+    public EndpointAuthInfo(EndpointAuthInfo authInfo) {
+        this.path = authInfo.path;
+        this.httpMethod = authInfo.httpMethod;
+        this.authExpression = authInfo.authExpression;
+        this.methodName = authInfo.methodName;
+        this.className = authInfo.className;
+        this.apiKeyRequired = authInfo.apiKeyRequired;
+        this.apiKeyHeaderName = authInfo.apiKeyHeaderName;
+        this.securityFeatures = new HashSet<>(authInfo.securityFeatures);
+    }
+
     public String getPath() {
         return path;
     }
@@ -79,7 +105,7 @@ public class EndpointAuthInfo {
         log.debug("Security features 🫠: {}", securityFeatures);
     }
 
-    public Object isBasicAuthRequired() {
+    public boolean isBasicAuthRequired() {
         return basicAuthRequired;
     }
 
@@ -87,7 +113,7 @@ public class EndpointAuthInfo {
         return securityFeatures.contains("CSRF Protection");
     }
 
-    public Object getSessionManagement() {
+    public String getSessionManagement() {
         return securityFeatures.stream()
                 .filter(f -> f.startsWith("Session Management"))
                 .findFirst()

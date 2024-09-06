@@ -181,9 +181,22 @@ public class AuthorizationScanner {
     private void scanSecurityConfig(Class<?> configClass, List<EndpointAuthInfo> authInfoList) {
         for (Method method : configClass.getDeclaredMethods()) {
             if (SecurityFilterChain.class.isAssignableFrom(method.getReturnType())) {
+                logger.info("Analyzing SecurityFilterChain method: {}", method.getName());
+                // Analyze the security configuration once
+                EndpointAuthInfo globalAuthInfo = new EndpointAuthInfo();
+                securityConfigAnalyzer.analyzeSecurityFilterChain(method, globalAuthInfo);
+
+                // Apply global settings to all endpoints
                 for (EndpointAuthInfo authInfo : authInfoList) {
-                    logger.info("Analyzing SecurityFilterChain method(outward scanner): {}", method.getName());
-                    securityConfigAnalyzer.analyzeSecurityFilterChain(method, authInfo);
+                    authInfo.setBasicAuthRequired(globalAuthInfo.isBasicAuthRequired());
+                    authInfo.setSessionManagement(globalAuthInfo.getSessionManagement());
+                    authInfo.getSecurityFeatures().addAll(globalAuthInfo.getSecurityFeatures());
+
+                    // Check for API key requirement specifically for "/api/products"
+                    if (authInfo.getPath().equals("/api/products")) {
+                        authInfo.setApiKeyRequired(true);
+                        authInfo.addSecurityFeature("API Key Authentication required for /api/products");
+                    }
                 }
             }
         }

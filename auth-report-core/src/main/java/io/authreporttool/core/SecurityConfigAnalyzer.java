@@ -1,19 +1,19 @@
 package io.authreporttool.core;
 
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class SecurityConfigAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfigAnalyzer.class);
+
+    private Map<String, FilterAnalysis> filterAnalyses = new HashMap<>();
+    private boolean apiKeyFilterAdded = false;
+    private boolean basicAuthEnabled = false;
 
     public void analyzeSecurityFilterChain(Method method, EndpointAuthInfo authInfo) {
         try {
@@ -23,7 +23,13 @@ public class SecurityConfigAnalyzer {
             SecurityConfigVisitor visitor = new SecurityConfigVisitor(method.getName());
             reader.accept(visitor, ClassReader.SKIP_DEBUG);
 
-            updateAuthInfo(authInfo, visitor);
+            interpretSecurityConfig(visitor.getConfigSteps(), authInfo);
+
+            for (String filterClassName : visitor.getCustomFilters()) {
+                analyzeCustomFilter(filterClassName);
+            }
+
+            updateAuthInfo(authInfo);
 
             logger.info("Security features detected: {}", authInfo.getSecurityFeatures());
         } catch (IOException e) {
@@ -33,26 +39,66 @@ public class SecurityConfigAnalyzer {
         }
     }
 
-    private void updateAuthInfo(EndpointAuthInfo authInfo, SecurityConfigVisitor visitor) {
-        authInfo.setApiKeyRequired(visitor.isApiKeyAuthDetected());
-        authInfo.setBasicAuthRequired(visitor.isBasicAuthRequired());
-
-        if (visitor.getSessionManagement() != null) {
-            authInfo.setSessionManagement(visitor.getSessionManagement());
+    private void interpretSecurityConfig(List<SecurityConfigVisitor.SecurityConfigStep> steps, EndpointAuthInfo authInfo) {
+        for (SecurityConfigVisitor.SecurityConfigStep step : steps) {
+            if (step.name.equals("addFilterBefore") && step.descriptor.contains("ApiKeyAuthFilter")) {
+                apiKeyFilterAdded = true;
+                logger.info("API Key filter added to security chain");
+            } else if (step.name.equals("httpBasic")) {
+                basicAuthEnabled = true;
+                logger.info("Basic Authentication enabled");
+            } else if (step.name.equals("sessionManagement")) {
+                authInfo.setSessionManagement("Custom");
+                authInfo.addSecurityFeature("Custom Session Management");
+            }
         }
 
-        for (String feature : visitor.getSecurityFeatures()) {
-            authInfo.addSecurityFeature(feature);
+        if (basicAuthEnabled) {
+            authInfo.setBasicAuthRequired(true);
+            authInfo.addSecurityFeature("Basic Authentication");
+        }
+    }
+
+    private void updateAuthInfo(EndpointAuthInfo authInfo) {
+        if (apiKeyFilterAdded) {
+            for (FilterAnalysis filterAnalysis : filterAnalyses.values()) {
+                if (filterAnalysis.getFilterName().contains("ApiKeyAuthFilter")) {
+                    for (String endpoint : filterAnalysis.getApplicableEndpoints()) {
+                        if (authInfo.getPath().equals(endpoint)) {
+                            authInfo.setApiKeyRequired(true);
+                            authInfo.addSecurityFeature("API Key Authentication required for " + endpoint);
+                            logger.info("API Key required for endpoint: {}", endpoint);
+                        }
+                    }
+                    if (filterAnalysis.getApplicableEndpoints().isEmpty()) {
+                        authInfo.addSecurityFeature("API Key Authentication potentially required (check implementation)");
+                    }
+                }
+            }
+        }
+    }
+
+    private void analyzeCustomFilter(String filterClassName) {
+        try {
+            ClassReader reader = new ClassReader(filterClassName);
+            CustomFilterVisitor visitor = new CustomFilterVisitor(filterClassName);
+            reader.accept(visitor, ClassReader.SKIP_DEBUG);
+
+            FilterAnalysis analysis = visitor.getFilterAnalysis();
+            filterAnalyses.put(filterClassName, analysis);
+
+            logger.info("Analyzed custom filter: {}", filterClassName);
+            logger.info("Filter applies to: {}", analysis.getApplicableEndpoints());
+        } catch (IOException e) {
+            logger.error("Error analyzing custom filter: " + filterClassName, e);
         }
     }
 
     private static class SecurityConfigVisitor extends ClassVisitor {
         private final String targetMethodName;
-        private boolean apiKeyAuthDetected = false;
-        private boolean basicAuthDetected = false;
-        private boolean csrfDisabled = false;
-        private String sessionManagement = null;
-        private final Set<String> securityFeatures = new HashSet<>();
+        private boolean inTargetMethod = false;
+        private List<SecurityConfigStep> configSteps = new ArrayList<>();
+        private final List<String> customFilters = new ArrayList<>();
 
         public SecurityConfigVisitor(String targetMethodName) {
             super(Opcodes.ASM9);
@@ -62,116 +108,140 @@ public class SecurityConfigAnalyzer {
         @Override
         public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
             if (name.equalsIgnoreCase(targetMethodName)) {
+                inTargetMethod = true;
                 return new MethodVisitor(Opcodes.ASM9) {
                     @Override
                     public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
-                        analyzeMethodCall(owner, name, descriptor);
+                        if (inTargetMethod) {
+                            configSteps.add(new SecurityConfigStep(owner, name, descriptor));
+                            if (name.equals("addFilterBefore") || name.equals("addFilterAfter")) {
+                                customFilters.add(extractFilterClassName(descriptor));
+                            }
+                        }
+                        super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
                     }
 
                     @Override
                     public void visitLdcInsn(Object value) {
-                        if (value instanceof String) {
-                            String stringValue = (String) value;
-                            if (stringValue.contains("SessionCreationPolicy")) {
-                                sessionManagement = determineSessionManagement(stringValue);
-                                logger.info("Detected Session Management: {}", sessionManagement);
-                            }
+                        if (inTargetMethod && value instanceof String) {
+                            configSteps.add(new SecurityConfigStep("LDC", value.toString(), null));
                         }
+                        super.visitLdcInsn(value);
                     }
                 };
             }
             return null;
         }
 
-        private void analyzeMethodCall(String owner, String name, String descriptor) {
-            logger.debug("Analyzing method call: {}.{}{}", owner, name, descriptor);
+        @Override
+        public void visitEnd() {
+            inTargetMethod = false;
+            super.visitEnd();
+        }
 
-            if (isApiKeyRelatedCall(owner, name, descriptor)) {
-                apiKeyAuthDetected = true;
-                securityFeatures.add("API Key Authentication");
-                logger.info("Detected API Key Authentication");
+        private String extractFilterClassName(String descriptor) {
+            int start = descriptor.indexOf("L") + 1;
+            int end = descriptor.indexOf(";");
+            return descriptor.substring(start, end).replace("/", ".");
+        }
+
+        public List<SecurityConfigStep> getConfigSteps() {
+            return configSteps;
+        }
+
+        public List<String> getCustomFilters() {
+            return customFilters;
+        }
+
+        static class SecurityConfigStep {
+            String owner;
+            String name;
+            String descriptor;
+
+            SecurityConfigStep(String owner, String name, String descriptor) {
+                this.owner = owner;
+                this.name = name;
+                this.descriptor = descriptor;
             }
 
-            if (isSessionManagementRelatedCall(owner, name, descriptor)) {
-                if (sessionManagement == null) {
-                    sessionManagement = "DEFAULT";
-                }
-                securityFeatures.add("Session Management: " + sessionManagement);
-                logger.info("Detected Session Management call");
-            }
-
-            if (isBasicAuthRelatedCall(owner, name)) {
-                basicAuthDetected = true;
-                securityFeatures.add("Basic Authentication");
-                logger.info("Detected Basic Authentication");
-            }
-
-            if (isJwtRelatedCall(owner, name)) {
-                securityFeatures.add("JWT Authentication");
-                logger.info("Detected JWT Authentication");
-            }
-
-            if (isOAuth2RelatedCall(owner, name)) {
-                securityFeatures.add("OAuth2 Authentication");
-                logger.info("Detected OAuth2 Authentication");
-            }
-
-            if (isCsrfRelatedCall(owner, name, descriptor)) {
-                csrfDisabled = true;
-                securityFeatures.add("CSRF Disabled");
-                logger.info("Detected CSRF Disabled");
+            @Override
+            public String toString() {
+                return owner + "." + name + (descriptor != null ? descriptor : "");
             }
         }
+    }
 
-        private boolean isApiKeyRelatedCall(String owner, String name, String descriptor) {
-            boolean isApiKeyClass = owner.toLowerCase().contains("apikey") || owner.toLowerCase().contains("tokenauth");
-            boolean isApiKeyMethod = name.toLowerCase().contains("apikey") || name.toLowerCase().contains("tokenauth");
-            boolean isAddFilterMethod = name.toLowerCase().contains("addfilter");
+    private static class CustomFilterVisitor extends ClassVisitor {
+        private final FilterAnalysis filterAnalysis;
+        private boolean inDoFilterInternal = false;
+        private boolean expectingEndpoint = false;
+        private boolean foundRequestURICheck = false;
+        private String lastStringConstant = null;
 
-            if (isApiKeyClass || isApiKeyMethod || (isAddFilterMethod && descriptor.contains("ApiKeyAuthFilter"))) {
-                logger.info("Detected API Key related call: {}.{}{}", owner, name, descriptor);
-                return true;
+        public CustomFilterVisitor(String filterClassName) {
+            super(Opcodes.ASM9);
+            this.filterAnalysis = new FilterAnalysis(filterClassName);
+        }
+
+        @Override
+        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+            if (name.equals("doFilterInternal")) {
+                inDoFilterInternal = true;
+                return new MethodVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitMethodInsn(int opcode, String owner, String name, String descriptor, boolean isInterface) {
+                        if (name.equals("getRequestURI")) {
+                            foundRequestURICheck = true;
+                        } else if (name.equals("equals") && foundRequestURICheck && lastStringConstant != null) {
+                            filterAnalysis.addApplicableEndpoint(lastStringConstant);
+                            logger.info("Found applicable endpoint for filter {}: {}", filterAnalysis.getFilterName(), lastStringConstant);
+                            foundRequestURICheck = false;
+                            lastStringConstant = null;
+                        }
+                        super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                    }
+
+                    @Override
+                    public void visitLdcInsn(Object value) {
+                        if (value instanceof String) {
+                            lastStringConstant = (String) value;
+                        }
+                        super.visitLdcInsn(value);
+                    }
+                };
             }
-            return false;
+            return null;
         }
 
-        private boolean isBasicAuthRelatedCall(String owner, String name) {
-            return owner.toLowerCase().contains("httpsecurity") && name.equalsIgnoreCase("httpBasic");
+        @Override
+        public void visitEnd() {
+            inDoFilterInternal = false;
+            super.visitEnd();
         }
 
-        private boolean isSessionManagementRelatedCall(String owner, String name, String descriptor) {
-            return owner.toLowerCase().contains("httpsecurity") &&
-                    name.toLowerCase().contains("sessionmanagement");
+        public FilterAnalysis getFilterAnalysis() {
+            return filterAnalysis;
+        }
+    }
+
+    private static class FilterAnalysis {
+        private final String filterName;
+        private final Set<String> applicableEndpoints = new HashSet<>();
+
+        public FilterAnalysis(String filterClassName) {
+            this.filterName = filterClassName.substring(filterClassName.lastIndexOf('.') + 1);
         }
 
-        private boolean isJwtRelatedCall(String owner, String name) {
-            return owner.toLowerCase().contains("jwt") &&
-                    (name.toLowerCase().contains("configure") || name.toLowerCase().contains("addfilter"));
+        public void addApplicableEndpoint(String endpoint) {
+            applicableEndpoints.add(endpoint);
         }
 
-        private boolean isOAuth2RelatedCall(String owner, String name) {
-            return owner.toLowerCase().contains("oauth2") &&
-                    (name.toLowerCase().contains("configure") || name.toLowerCase().contains("addfilter"));
+        public String getFilterName() {
+            return filterName;
         }
 
-        private boolean isCsrfRelatedCall(String owner, String name, String descriptor) {
-            return owner.toLowerCase().contains("httpsecurity") &&
-                    name.toLowerCase().contains("csrf") &&
-                    descriptor.toLowerCase().contains("disable");
+        public Set<String> getApplicableEndpoints() {
+            return applicableEndpoints;
         }
-
-        private String determineSessionManagement(String descriptor) {
-            if (descriptor.contains("ALWAYS")) return "ALWAYS";
-            if (descriptor.contains("NEVER")) return "NEVER";
-            if (descriptor.contains("IF_REQUIRED")) return "IF_REQUIRED";
-            if (descriptor.contains("STATELESS")) return "STATELESS";
-            return "DEFAULT";
-        }
-
-        // Getters
-        public boolean isApiKeyAuthDetected() { return apiKeyAuthDetected; }
-        public boolean isBasicAuthRequired() { return basicAuthDetected; }
-        public String getSessionManagement() { return sessionManagement; }
-        public Set<String> getSecurityFeatures() { return securityFeatures; }
     }
 }
