@@ -12,6 +12,9 @@ import java.util.stream.Collectors;
  * The ReportGenerator class is responsible for generating comprehensive reports based on the authorization
  * information collected by the AuthorizationScanner. It can generate both standard and differential reports,
  * including detailed security configuration information for each endpoint.
+ *
+ * This class serves as the final step in the authorization analysis process, transforming raw endpoint data
+ * into structured, readable reports for security auditing and change tracking purposes.
  */
 public class ReportGenerator {
 
@@ -19,15 +22,18 @@ public class ReportGenerator {
     private final AuthorizationScanner scanner;
 
     /**
-     * Constructor to initialize the ReportGenerator with an AuthorizationScanner instance.
-     * @param scanner The AuthorizationScanner used to scan for endpoint authorization information.
+     * Constructs a new ReportGenerator with the specified AuthorizationScanner.
+     *
+     * @param scanner The AuthorizationScanner used to collect endpoint authorization information.
      */
     public ReportGenerator(AuthorizationScanner scanner) {
         this.scanner = scanner;
     }
 
     /**
-     * Generates a comprehensive authorization report by scanning the specified base package.
+     * Generates a comprehensive authorization report for the specified base package.
+     * This method orchestrates the entire report generation process, from scanning to report creation.
+     *
      * @param basePackage The base package to scan for endpoint authorization information.
      * @return An AuthorizationReport containing detailed endpoint authorization information.
      */
@@ -38,8 +44,9 @@ public class ReportGenerator {
     }
 
     /**
-     * Processes a list of EndpointAuthInfo objects into an AuthorizationReport.
-     * Groups endpoints by their authorization expressions and creates authorization groups.
+     * Processes a list of EndpointAuthInfo objects into a structured AuthorizationReport.
+     * This method groups endpoints by their authorization expressions and creates authorization groups.
+     *
      * @param authInfoList The list of endpoint authorization information.
      * @return An AuthorizationReport containing the grouped authorization information.
      */
@@ -57,8 +64,10 @@ public class ReportGenerator {
 
     /**
      * Generates a detailed string representation of the authorization report.
+     * This method is useful for creating human-readable output of the report.
+     *
      * @param report The AuthorizationReport to convert to a string.
-     * @return A string representation of the authorization report.
+     * @return A formatted string representation of the authorization report.
      */
     public String generateDetailedReportString(AuthorizationReport report) {
         StringBuilder sb = new StringBuilder();
@@ -83,7 +92,8 @@ public class ReportGenerator {
 
     /**
      * Generates a differential report by comparing an old authorization report with a new one.
-     * Identifies endpoints that were added, removed, or changed between the two reports.
+     * This method is crucial for identifying changes in endpoint security configurations over time.
+     *
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
      * @return A DifferentialReport containing the differences between the two reports.
@@ -98,6 +108,7 @@ public class ReportGenerator {
 
     /**
      * Finds the endpoints that were added in the new report compared to the old report.
+     *
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
      * @return A list of EndpointDiff objects representing the added endpoints.
@@ -114,6 +125,7 @@ public class ReportGenerator {
 
     /**
      * Finds the endpoints that were removed in the new report compared to the old report.
+     *
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
      * @return A list of EndpointDiff objects representing the removed endpoints.
@@ -130,6 +142,7 @@ public class ReportGenerator {
 
     /**
      * Finds the endpoints that were changed between the old report and the new report.
+     *
      * @param oldReport The old authorization report.
      * @param newReport The new authorization report.
      * @return A list of EndpointDiff objects representing the changed endpoints.
@@ -153,6 +166,7 @@ public class ReportGenerator {
 
     /**
      * Creates a map of endpoints keyed by their paths for efficient lookup.
+     *
      * @param report The authorization report to create the map from.
      * @return A map of endpoint paths to EndpointAuthInfo objects.
      */
@@ -164,6 +178,7 @@ public class ReportGenerator {
 
     /**
      * Determines if an endpoint has changed by comparing all relevant fields.
+     *
      * @param newEndpoint The endpoint from the new report.
      * @param oldEndpoint The endpoint from the old report.
      * @return true if the endpoint has changed, false otherwise.
@@ -180,8 +195,9 @@ public class ReportGenerator {
 
     /**
      * Generates a detailed string representation of the differential report.
+     *
      * @param report The DifferentialReport to convert to a string.
-     * @return A string representation of the differential report.
+     * @return A formatted string representation of the differential report.
      */
     public String generateDetailedDiffReportString(DifferentialReport report) {
         StringBuilder sb = new StringBuilder();
@@ -206,6 +222,7 @@ public class ReportGenerator {
 
     /**
      * Appends the details of a single endpoint to the StringBuilder.
+     *
      * @param sb The StringBuilder to append to.
      * @param endpoint The EndpointAuthInfo to append.
      * @param changeType The type of change (Added, Removed, or Changed).

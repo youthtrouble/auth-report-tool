@@ -4,27 +4,39 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * The io.authreporttool.core.AuthorizationReport class represents a structured report of the authorization information
- * collected by the io.authreporttool.core.AuthorizationScanner. It provides a hierarchical view of the authorization
- * requirements for the scanned API endpoints.
+ * The AuthorizationReport class encapsulates the complete authorization analysis
+ * of an API, as performed by the AuthorizationScanner. It provides a structured,
+ * hierarchical view of the authorization requirements for all scanned API endpoints.
+ *
+ * This class serves as the main data structure for representing the final output
+ * of the authorization scanning process, offering methods to access grouped
+ * endpoint information and overall statistics about the scanned API's
+ * authorization landscape.
  */
 public class AuthorizationReport {
 
     /**
-     * A list of io.authreporttool.core.AuthorizationGroup objects, where each group represents a set of endpoints
-     * that share the same authorization expression (e.g., "ROLE_ADMIN", "ROLE_USER").
+     * A list of AuthorizationGroup objects, each representing a set of endpoints
+     * that share the same authorization expression (e.g., "hasRole('ADMIN')").
+     * This grouping allows for easy analysis of authorization patterns across
+     * the API.
      */
     private final List<AuthorizationGroup> groups;
 
     /**
-     * The timestamp when the authorization report was generated.
+     * The timestamp indicating when this authorization report was generated.
+     * This information is crucial for versioning and tracking changes in
+     * authorization configurations over time.
      */
     private final LocalDateTime generatedAt;
 
     /**
-     * Constructor to initialize the io.authreporttool.core.AuthorizationReport.
-     * @param groups A list of io.authreporttool.core.AuthorizationGroup objects representing the grouped authorization information.
-     * @param generatedAt The timestamp when the report was generated.
+     * Constructs a new AuthorizationReport with the specified groups of
+     * endpoints and generation timestamp.
+     *
+     * @param groups A list of AuthorizationGroup objects representing the
+     *               grouped authorization information for all scanned endpoints.
+     * @param generatedAt The timestamp when this report was generated.
      */
     public AuthorizationReport(List<AuthorizationGroup> groups, LocalDateTime generatedAt) {
         this.groups = groups;
@@ -32,23 +44,29 @@ public class AuthorizationReport {
     }
 
     /**
-     * Getter method to retrieve the list of io.authreporttool.core.AuthorizationGroup objects in the report.
-     * @return The list of io.authreporttool.core.AuthorizationGroup objects.
+     * Retrieves the list of AuthorizationGroup objects in the report.
+     * Each group represents a set of endpoints sharing the same
+     * authorization expression.
+     *
+     * @return An unmodifiable list of AuthorizationGroup objects.
      */
     public List<AuthorizationGroup> getGroupedEndpoints() {
         return groups;
     }
 
     /**
-     * Getter method to retrieve the timestamp when the report was generated.
-     * @return The timestamp when the report was generated.
+     * Retrieves the timestamp when this report was generated.
+     *
+     * @return The LocalDateTime representing when this report was created.
      */
     public LocalDateTime getGeneratedAt() {
         return generatedAt;
     }
 
     /**
-     * Utility method to get the total number of endpoints in the report.
+     * Calculates and returns the total number of endpoints analyzed in this report.
+     * This method aggregates the endpoint counts across all authorization groups.
+     *
      * @return The total number of endpoints in the report.
      */
     public int getTotalEndpoints() {
@@ -58,7 +76,10 @@ public class AuthorizationReport {
     }
 
     /**
-     * Utility method to get the number of unique authorization expressions in the report.
+     * Calculates and returns the number of unique authorization expressions
+     * found across all endpoints in the API.
+     * This is equivalent to the number of AuthorizationGroup objects in the report.
+     *
      * @return The number of unique authorization expressions in the report.
      */
     public int getUniqueAuthExpressions() {

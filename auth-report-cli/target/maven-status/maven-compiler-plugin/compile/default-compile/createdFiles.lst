@@ -1,6 +1,6 @@
-io/authreporttool/cli/ReportPrinter$SimplifiedReport.class
 io/authreporttool/cli/ReportPrinter.class
-io/authreporttool/cli/ReportPrinter$1.class
-io/authreporttool/cli/ReportPrinter$SimplifiedGroup.class
+io/authreporttool/cli/ReportPrinter$JsonEndpoint.class
+io/authreporttool/cli/ReportPrinter$JsonAuthGroup.class
 io/authreporttool/cli/AuthorizationReportCli.class
+io/authreporttool/cli/ReportPrinter$JsonReport.class
 io/authreporttool/cli/CommandLineOptions.class

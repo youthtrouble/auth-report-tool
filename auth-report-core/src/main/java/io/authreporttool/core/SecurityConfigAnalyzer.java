@@ -12,7 +12,6 @@ public class SecurityConfigAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfigAnalyzer.class);
 
     private Map<String, FilterAnalysis> filterAnalyses = new HashMap<>();
-    private boolean apiKeyFilterAdded = false;
     private boolean basicAuthEnabled = false;
 
     public void analyzeSecurityFilterChain(Method method, EndpointAuthInfo authInfo) {
@@ -41,15 +40,15 @@ public class SecurityConfigAnalyzer {
 
     private void interpretSecurityConfig(List<SecurityConfigVisitor.SecurityConfigStep> steps, EndpointAuthInfo authInfo) {
         for (SecurityConfigVisitor.SecurityConfigStep step : steps) {
-            if (step.name.equals("addFilterBefore") && step.descriptor.contains("ApiKeyAuthFilter")) {
-                apiKeyFilterAdded = true;
-                logger.info("API Key filter added to security chain");
-            } else if (step.name.equals("httpBasic")) {
+            logger.debug("Interpreting security config step: {}", step);
+            if (step.name.equals("httpBasic")) {
                 basicAuthEnabled = true;
                 logger.info("Basic Authentication enabled");
             } else if (step.name.equals("sessionManagement")) {
                 authInfo.setSessionManagement("Custom");
                 authInfo.addSecurityFeature("Custom Session Management");
+            } else if (step.name.equals("addFilterBefore") || step.name.equals("addFilterAfter")) {
+                logger.info("Custom filter added: {}", step.descriptor);
             }
         }
 
@@ -60,19 +59,15 @@ public class SecurityConfigAnalyzer {
     }
 
     private void updateAuthInfo(EndpointAuthInfo authInfo) {
-        if (apiKeyFilterAdded) {
-            for (FilterAnalysis filterAnalysis : filterAnalyses.values()) {
-                if (filterAnalysis.getFilterName().contains("ApiKeyAuthFilter")) {
-                    for (String endpoint : filterAnalysis.getApplicableEndpoints()) {
-                        if (authInfo.getPath().equals(endpoint)) {
-                            authInfo.setApiKeyRequired(true);
-                            authInfo.addSecurityFeature("API Key Authentication required for " + endpoint);
-                            logger.info("API Key required for endpoint: {}", endpoint);
-                        }
-                    }
-                    if (filterAnalysis.getApplicableEndpoints().isEmpty()) {
-                        authInfo.addSecurityFeature("API Key Authentication potentially required (check implementation)");
-                    }
+        for (FilterAnalysis filterAnalysis : filterAnalyses.values()) {
+            logger.debug("Checking filter: {} for endpoint: {}", filterAnalysis.getFilterName(), authInfo.getPath());
+            if (filterAnalysis.getFilterName().contains("ApiKeyAuthFilter")) {
+                if (filterAnalysis.appliesTo(authInfo.getPath())) {
+                    authInfo.setApiKeyRequired(true);
+                    authInfo.addSecurityFeature("API Key Authentication required");
+                    logger.info("API Key required for endpoint: {}", authInfo.getPath());
+                } else {
+                    logger.debug("API Key not required for endpoint: {}", authInfo.getPath());
                 }
             }
         }
@@ -80,8 +75,9 @@ public class SecurityConfigAnalyzer {
 
     private void analyzeCustomFilter(String filterClassName) {
         try {
+            logger.info("Analyzing custom filter: {}", filterClassName);
             ClassReader reader = new ClassReader(filterClassName);
-            CustomFilterVisitor visitor = new CustomFilterVisitor(filterClassName);
+            ApiKeyFilterVisitor visitor = new ApiKeyFilterVisitor(filterClassName);
             reader.accept(visitor, ClassReader.SKIP_DEBUG);
 
             FilterAnalysis analysis = visitor.getFilterAnalysis();
@@ -93,7 +89,6 @@ public class SecurityConfigAnalyzer {
             logger.error("Error analyzing custom filter: " + filterClassName, e);
         }
     }
-
     private static class SecurityConfigVisitor extends ClassVisitor {
         private final String targetMethodName;
         private boolean inTargetMethod = false;
@@ -171,14 +166,14 @@ public class SecurityConfigAnalyzer {
         }
     }
 
-    private static class CustomFilterVisitor extends ClassVisitor {
+    private static class ApiKeyFilterVisitor extends ClassVisitor {
         private final FilterAnalysis filterAnalysis;
         private boolean inDoFilterInternal = false;
-        private boolean expectingEndpoint = false;
         private boolean foundRequestURICheck = false;
         private String lastStringConstant = null;
+        private boolean negateCondition = false;
 
-        public CustomFilterVisitor(String filterClassName) {
+        public ApiKeyFilterVisitor(String filterClassName) {
             super(Opcodes.ASM9);
             this.filterAnalysis = new FilterAnalysis(filterClassName);
         }
@@ -193,10 +188,12 @@ public class SecurityConfigAnalyzer {
                         if (name.equals("getRequestURI")) {
                             foundRequestURICheck = true;
                         } else if (name.equals("equals") && foundRequestURICheck && lastStringConstant != null) {
-                            filterAnalysis.addApplicableEndpoint(lastStringConstant);
-                            logger.info("Found applicable endpoint for filter {}: {}", filterAnalysis.getFilterName(), lastStringConstant);
+                            String endpoint = negateCondition ? "**" : lastStringConstant;
+                            filterAnalysis.addApplicableEndpoint(endpoint);
+                            logger.info("Found applicable endpoint for filter {}: {}", filterAnalysis.getFilterName(), endpoint);
                             foundRequestURICheck = false;
                             lastStringConstant = null;
+                            negateCondition = false;
                         }
                         super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
                     }
@@ -207,6 +204,14 @@ public class SecurityConfigAnalyzer {
                             lastStringConstant = (String) value;
                         }
                         super.visitLdcInsn(value);
+                    }
+
+                    @Override
+                    public void visitJumpInsn(int opcode, Label label) {
+                        if (opcode == Opcodes.IFNE) {
+                            negateCondition = true;
+                        }
+                        super.visitJumpInsn(opcode, label);
                     }
                 };
             }
@@ -234,6 +239,10 @@ public class SecurityConfigAnalyzer {
 
         public void addApplicableEndpoint(String endpoint) {
             applicableEndpoints.add(endpoint);
+        }
+
+        public boolean appliesTo(String path) {
+            return applicableEndpoints.contains("**") || applicableEndpoints.contains(path);
         }
 
         public String getFilterName() {

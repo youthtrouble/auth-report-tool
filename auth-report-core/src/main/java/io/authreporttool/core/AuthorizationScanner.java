@@ -15,8 +15,12 @@ import java.util.Set;
 
 /**
  * The AuthorizationScanner class is responsible for scanning a specified package
- * for REST controllers and security configurations to extract authentication and
+ * for REST controllers and security configurations. It extracts authentication and
  * authorization details for each endpoint, including API key authentication.
+ *
+ * This class serves as the main orchestrator for the authorization scanning process,
+ * coordinating between controller scanning, security configuration analysis, and
+ * endpoint information extraction.
  */
 public class AuthorizationScanner {
 
@@ -24,11 +28,14 @@ public class AuthorizationScanner {
 
     // Utility instance for performing reflection-based operations
     private final ReflectionUtils reflectionUtils;
+    // Analyzer for security configurations
     private final SecurityConfigAnalyzer securityConfigAnalyzer;
 
     /**
-     * Constructor to initialize the AuthorizationScanner with a ReflectionUtils instance.
+     * Constructor to initialize the AuthorizationScanner with necessary dependencies.
+     *
      * @param reflectionUtils Utility class used for reflection-based operations.
+     * @param securityConfigAnalyzer Analyzer for security configurations.
      */
     public AuthorizationScanner(ReflectionUtils reflectionUtils, SecurityConfigAnalyzer securityConfigAnalyzer) {
         this.reflectionUtils = reflectionUtils;
@@ -38,6 +45,13 @@ public class AuthorizationScanner {
     /**
      * Scans the specified base package for REST controllers and security configurations,
      * and extracts authentication and authorization details for each endpoint.
+     *
+     * This method orchestrates the entire scanning process:
+     * 1. Finds all classes annotated with @RestController
+     * 2. Scans each controller for endpoints
+     * 3. Identifies security configuration classes
+     * 4. Analyzes security configurations for each endpoint
+     *
      * @param basePackage The base package to scan for controllers and security config.
      * @return A list of EndpointAuthInfo containing authentication details for each endpoint.
      */
@@ -70,6 +84,7 @@ public class AuthorizationScanner {
     /**
      * Scans the specified controller class for methods and extracts
      * authentication and authorization details for each method (endpoint).
+     *
      * @param controller The controller class to scan.
      * @return A list of EndpointAuthInfo containing authentication details for each method.
      */
@@ -94,6 +109,7 @@ public class AuthorizationScanner {
 
     /**
      * Extracts the base path for the controller from its RequestMapping annotation.
+     *
      * @param controller The controller class.
      * @return The base path for the controller, or an empty string if not found.
      */
@@ -107,6 +123,9 @@ public class AuthorizationScanner {
 
     /**
      * Extracts authentication and authorization details from a given method.
+     * This method checks for various mapping annotations and PreAuthorize annotations
+     * to determine the endpoint's path, HTTP method, and authorization requirements.
+     *
      * @param method The method to extract authentication details from.
      * @param controllerPath The base path of the controller.
      * @return An EndpointAuthInfo object containing the authentication details, or null if not applicable.
@@ -133,7 +152,9 @@ public class AuthorizationScanner {
     }
 
     /**
-     * Determines the full path for an endpoint.
+     * Determines the full path for an endpoint by combining the controller path
+     * and the method-specific path.
+     *
      * @param method The method representing the endpoint.
      * @param controllerPath The base path of the controller.
      * @return The full path of the endpoint.
@@ -162,7 +183,8 @@ public class AuthorizationScanner {
     }
 
     /**
-     * Determines the HTTP method for an endpoint.
+     * Determines the HTTP method for an endpoint based on the mapping annotation used.
+     *
      * @param method The method representing the endpoint.
      * @return The HTTP method as a string.
      */
@@ -178,25 +200,19 @@ public class AuthorizationScanner {
         return HttpMethod.GET.name();
     }
 
+    /**
+     * Scans the security configuration class and analyzes its SecurityFilterChain methods.
+     * This method applies the security configuration analysis to each endpoint.
+     *
+     * @param configClass The security configuration class to analyze.
+     * @param authInfoList The list of endpoint authentication info to update.
+     */
     private void scanSecurityConfig(Class<?> configClass, List<EndpointAuthInfo> authInfoList) {
         for (Method method : configClass.getDeclaredMethods()) {
             if (SecurityFilterChain.class.isAssignableFrom(method.getReturnType())) {
                 logger.info("Analyzing SecurityFilterChain method: {}", method.getName());
-                // Analyze the security configuration once
-                EndpointAuthInfo globalAuthInfo = new EndpointAuthInfo();
-                securityConfigAnalyzer.analyzeSecurityFilterChain(method, globalAuthInfo);
-
-                // Apply global settings to all endpoints
                 for (EndpointAuthInfo authInfo : authInfoList) {
-                    authInfo.setBasicAuthRequired(globalAuthInfo.isBasicAuthRequired());
-                    authInfo.setSessionManagement(globalAuthInfo.getSessionManagement());
-                    authInfo.getSecurityFeatures().addAll(globalAuthInfo.getSecurityFeatures());
-
-                    // Check for API key requirement specifically for "/api/products"
-                    if (authInfo.getPath().equals("/api/products")) {
-                        authInfo.setApiKeyRequired(true);
-                        authInfo.addSecurityFeature("API Key Authentication required for /api/products");
-                    }
+                    securityConfigAnalyzer.analyzeSecurityFilterChain(method, authInfo);
                 }
             }
         }
