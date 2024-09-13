@@ -1,11 +1,14 @@
 package io.authreporttool.spring;
 
-import io.authreporttool.core.AuthorizationScanner;
-import io.authreporttool.core.ReflectionUtils;
-import io.authreporttool.core.ReportGenerator;
-import io.authreporttool.core.SecurityConfigAnalyzer;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.authreporttool.core.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * AuthReportConfig is a Spring Configuration class that defines beans for the
@@ -65,4 +68,42 @@ public class AuthReportConfig {
     public ReportGenerator reportGenerator(AuthorizationScanner authorizationScanner) {
         return new ReportGenerator(authorizationScanner);
     }
+
+    /**
+     * Exposes an endpoint to retrieve the authorization report.
+     *
+     * @param basePackage The base package to scan for authorization configurations.
+     * @param format The desired output format (text or json).
+     * @return The authorization report as a ResponseEntity.
+     */
+    @GetMapping("/api/auth-report")
+    public ResponseEntity<String> getAuthorizationReport(
+            @RequestParam String basePackage,
+            @RequestParam(defaultValue = "json") String format) {
+
+        ReportGenerator generator = reportGenerator(authorizationScanner(reflectionUtils()));
+        AuthorizationReport report = generator.generateReport(basePackage);
+
+        String reportContent;
+        String contentType;
+
+        if ("json".equalsIgnoreCase(format)) {
+            // Use Jackson ObjectMapper for JSON serialization
+            ObjectMapper mapper = new ObjectMapper();
+            try {
+                reportContent = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(report);
+                contentType = "application/json";
+            } catch (JsonProcessingException e) {
+                return ResponseEntity.internalServerError().body("Error generating JSON report");
+            }
+        } else {
+            reportContent = generator.generateDetailedReportString(report);
+            contentType = "text/plain";
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(reportContent);
+    }
+
 }
